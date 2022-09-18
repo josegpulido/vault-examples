@@ -1,4 +1,4 @@
-# Prácticas en bash scripting
+# Prácticas en Vault HashiCorp
 
 Ejemplos y ejercicios ordenados al azar.
 
