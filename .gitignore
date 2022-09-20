@@ -1,0 +1,7 @@
+# Ignorar todos los archivos que comiencen con
+# un punto (.) y terminen con la extensión .hcl,
+# permitiendo crear cualquier cantidad de archivos
+# para llevar a cabo los ejemplos, como
+# .my-server-config.hcl o .my-policy.hcl, etc.
+.*.hcl
+.*.json
