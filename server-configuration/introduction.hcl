@@ -25,7 +25,7 @@
 # Ver todos los parámetros de configuración:
 # + https://www.vaultproject.io/docs/configuration/listener/tcp
 listener "tcp" {
-    # Especifica la dirección de red bien sea del servidor stand-alone o del nodo
+    # Especifica la dirección de red bien sea del servidor stand-alone o de un nodo
     # del clúster. Soporta interfaces IPv4 e IPv6.
     #
     # Escribir la figura [::]:8200 le hará inferir a Go que se desea escuchar por
@@ -41,16 +41,12 @@ listener "tcp" {
     # Authority (CA) en la conexión TLS, el archivo aquí indicado deberá contener ambos
     # certificados; el certificado CA, en primer lugar; y a continuación, el certificado
     # de llave pública, en ese orden.
-    #
-    # Ruta recomendada: /etc/certs/file.crt
-    tls_cert_file = "/path/to/file.crt"
+    tls_cert_file = "/etc/certs/file.crt"
     # Especifica la ubicación del certificado de llave privada del servidor. Requiere
     # un archivo PEM-encoded. Si el archivo requiere passphrase, el servidor la solicitará
     # al momento del arranque. De haber configurado un passphrase por primera vez, este
     # deberá mantenerse igual entre cada rotación de certificados de llave privada.
-    #
-    # Ruta recomendada: /etc/certs/file.key
-    tls_key_file = "/path/to/file.key"
+    tls_key_file = "/etc/certs/file.key"
     # Especifica la mínima versión del protocolo TLS. También soporta las versiones
     # tls10 y tls11, pero se encuentran obsoletas y se recomienda ampliamente evitarlas.
     tls_min_version = "tls12 | tls13"
@@ -78,33 +74,90 @@ listener "tcp" {
 }
 
 # La sentencia [api_addr] especifica la URL completa del API de Vault en caso
-# de desplegar una infrastructura High Availability. No tiene valor por defecto.
+# de desplegar una infrastructura High Availability. No tiene valor por defecto, y
+# se deberá colocar la dirección de red del nodo "leader" del protocolo raft.
 # Nunca colocar un identificador de red loopback, como 127.0.0.1, localhost, etc.
 #
 # Soporta interfaces IPv4 e IPv6.
-api_addr="https://192.168.1.67:8200/"
+api_addr="https://192.168.1.67:8200"
 
 # La sentencia [cluster_addr] especifica la URL completa del endpoint interno
-# que coordina las actividades y comunicación del clúster (High Availability).
+# que coordina las actividades y comunicación del clúster (modo High Availability).
 # No tiene valor por defecto.
 #
 # Soporta interfaces IPv4 e IPv6.
-cluster_addr="https://192.168.1.67:8201/"
+cluster_addr="https://192.168.1.67:8201"
 
 # El bloque [storage] contiene la configuración del Storage Backend
-# de Vault, así como los detalles del tipo de Storage a utilizar como
-# Integrated Storage o cualquier otro tipo de External Storage. Puede
-# contener a su vez toda la configuración del bloque [ha_storage],
-# o simplemente existir ambas de manera coordinada.
-storage "" {
-
+# seleccionado. Cada opción tiene sus ventajas, desventajas y características
+# particulares frente a las demás opciones. Por ejemplo, algunas opciones
+# soportan el modo High Availability, mientras otras proveen mayor
+# robustez en cuanto a respaldos y procesos de restauración.
+#
+# HashiCorp recomienda escoger Integrated Storage como solución de Storage, ya
+# no requiere instalación adicional (se encuentra embebido dentro del binario
+# ejecutable de Vault), recibe soporte oficial de HashiCorp y soporta
+# el modo High Availability. El identificador de este Storage en específico
+# es "raft".
+#
+# Algunos ejemplos de otros Storage Backends soportados por terceros son:
+# Azure, Cassandra, DynamoDB, Google Cloud Storage, MySQL, PostgreSQL, S3,
+# Swift, ZooKeeper, entre otros.
+#
+# Ver todos los parámetros de configuración:
+# + https://www.vaultproject.io/docs/configuration/storage/raft
+storage "raft" {
+    # Define la ruta del filesystem de la máquina anfitriona que Vault
+    # utilizará para almacenar todos los datos del Backend Storage.
+    path = "path/to/some-directory"
+    # Especifica el nombre del nodo dentro del clúster
+    node_id = "nodo-1"
+    # Permite establecer una identificación de cada nodo del clúster con el
+    # propósito de que los demás nodos o bien vuelvan a conectarse al clúster
+    # en caso de que alguno de ellos caiga, o bien se coordine el arranque del
+    # clúster en caso de que el clúster mismo esté arrancando luego de, p. ej.,
+    # una interrupción eléctrica o caída de red.
+    #
+    # Cuando el primero de los nodos del clúster arranca, este se convertirá
+    # automáticamente en el nodo "leader" y el resto de nodos se irán uniendo
+    # para formar el clúster. En caso de utilizar Shamir's Secret Sharing como
+    # mecanismo de unseal, los nodos unidos al clúster aún requeriran ser
+    # desencriptados (unsealed) de forma manual, uno por uno.
+    retry_join {
+        # Define mediante una URL completa la dirección de red de un nodo del clúster.
+        # Soporta interfaces IPv4 e IPv6.
+        leader_api_addr = "http://192.168.1.67:8200"
+        # Especifica la ubicación del certificado CA del posible nodo "leader".
+        leader_ca_cert_file = "/etc/certs/file.pem"
+        # Especifica la ubicación del certificado de clave pública del posible nodo "leader".
+        # Requiere un archivo PEM-encoded.
+        leader_client_cert_file = "/etc/certs/file.crt"
+        # Especifica la ubicación del certificado de llave privada del posible nodo "leader".
+        # Requiere un archivo PEM-encoded.
+        leader_client_key_file = "/etc/certs/file.key"
+    }
 }
 
-# El bloque [ha_storage] es opcional y complementa al bloque [storage]
-# respecto a la configuración del modo HA del Storage Backend elegido.
+# El bloque [ha_storage] tiene el propósito específico de definir configuración
+# adicional a aquellas soluciones de Backend Storage que no soporten el modo
+# High Availability por defecto, y permitir desplegar un escenario de clustering
+# entre varios nodos de manera coordinada.
+#
+# Este bloque no es necesario si se ha selecciondo una solución de Storage que
+# sí soporte el modo HA por defecto, como Consul o Integrated Storage.
+#
+# Más información sobre este escenario en particular:
+# + https://learn.hashicorp.com/tutorials/vault/raft-ha-storage
 ha_storage "" {
 
 }
+
+# La sentencia [disable_mlock] deshabilita o habilita el uso de memoria swap
+# en la solución de Storage Backend seleccionada. Su valor por defecto es
+# false, y en caso de haber seleccionado Integrated Storage como solución,
+# HashiCorp recomienda ampliamente desactivarlo como recomendación de
+# seguridad.
+disable_mlock=false
 
 # El bloque [seal] es opcional y configura el mecanismo de Auto Unseal,
 # en caso de implementarlo.
@@ -125,16 +178,24 @@ cluster_name="any-cluster-name"
 # La sentencia [log_level] especifica el nivel de log a usar en Vault.
 log_level="trace | debug | error | warn | info"
 
-# La sentencia [log_format] especifica el formato de logs generados.
+# La sentencia [log_format] especifica el formato de logs generados. El valor por defecto
+# es "standard".
 log_format="standard | json"
 
-# La sentencia [ui] habilita el soporte para la UI web de Vault integrada.
-# Esta UI está deshabilitada por defecto.
+# La sentencia [ui] habilita el soporte para la UI web built-in de Vault. En un escenario
+# stand-alone, deberá utilizarse la dirección de red configurada en el bloque [listener],
+# mientras que en escenarios de clustering, deberá utilizarse la dirección de red configurada
+# en la sentencia [api_addr].
+#
+# Esta interfaz gráfica es de tipo administrativa, y está deshabiliada por defecto. La URL
+# de acceso es la siguiente:
+# + http://<listener-addr | api-addr>:8200/ui/
 ui=true
 
 # La sentencia [default_lease_ttl] define la duración por defecto del TTL
 # de tokens y secretos. El valor por defecto es 768h, y no puede superar al
-# valor de la sentencia [max_lease_ttl]
+# valor de la sentencia [max_lease_ttl]. Puede ser sobreescrito mediante operaciones
+# adecuadas de "último tramo".
 default_lease_ttl="5m"
 
 # La sentencia [max_lease_ttl] define la duración máxima por defecto del TTL
