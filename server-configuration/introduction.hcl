@@ -19,8 +19,9 @@
 # Es posible definir varios bloques [listener] en caso de desplegar una infraestructura
 # High Availability, en cuyo caso también será necesario definir las sentencias [api_addr]
 # y [cluster_addr] para concertar entre todos los nodos el endpoint principal del
-# API al que pegarán los clientes HTTP y permitir a Vault desarrollar las funciones
-# de balanceo y redireccionamiento propias del clúster de manera correcta.
+# API al que pegarán los clientes HTTP y permitir a Vault desarrollar las funciones-
+# de balanceo y redireccionamiento propias del clúster de manera correcta. Lo anterior
+# también quiere decir que habrá tantos bloques [listener] como nodos en el clúster.
 #
 # Ver todos los parámetros de configuración:
 # + https://www.vaultproject.io/docs/configuration/listener/tcp
@@ -29,48 +30,45 @@ listener "tcp" {
     # del clúster. Soporta interfaces IPv4 e IPv6.
     #
     # Escribir la figura [::]:8200 le hará inferir a Go que se desea escuchar por
-    # todas las interfaces de red IPv4 e IPv6 posibles, incluyendo localhost. Recomendado
-    # para infraestructuras stand-alone.
+    # todas las interfaces de red IPv4 e IPv6 posibles, incluyendo localhost (recomendado
+    # para aplicaciones stand-alone).
     address = "192.168.1.7:8200"
-    # Habilita o deshabilita la comunicación TLS del servidor (HTTPS). El valor por
+    # Habilita o deshabilita la comunicación TLS en la máquina (HTTPS). El valor por
     # defecto es false.
     tls_disable = "false"
-    # Especifica la ubicación del certificado de clave pública del servidor. Requiere
-    # un archivo PEM-encoded, y depende del parámetro de configuración [tls_key_file] en
-    # caso de utilizar este parámetro. Para soportar un certificado Certificate
-    # Authority (CA) en la conexión TLS, el archivo aquí indicado deberá contener ambos
-    # certificados; el certificado CA, en primer lugar; y a continuación, el certificado
-    # de llave pública, en ese orden.
-    tls_cert_file = "/etc/certs/file.crt"
-    # Especifica la ubicación del certificado de llave privada del servidor. Requiere
-    # un archivo PEM-encoded. Si el archivo requiere passphrase, el servidor la solicitará
-    # al momento del arranque. De haber configurado un passphrase por primera vez, este
-    # deberá mantenerse igual entre cada rotación de certificados de llave privada.
-    tls_key_file = "/etc/certs/file.key"
+    # Especifica la ubicación del certificado X.509 web de clave pública de la máquina.
+    # Requiere un archivo PEM-encoded, y depende del parámetro de configuración [tls_key_file]
+    # para establecer la ubicación de la clave asimétrica privada. Si se desea incluir
+    # también el certificado del CA que firmó el certificado web, el archivo aquí indicado
+    # deberá contener ambos certificados; el certificado web, en primer lugar; y a continuación,
+    # el certificado CA, en ese orden.
+    #
+    # En caso de que el modo HA esté habilitado, cada máquina requerirá su propio
+    # certificado web distinto.
+    tls_cert_file = "/etc/certs/server.crt"
+    # Especifica la ubicación de la clave asimétrica privada de la máquina. Requiere
+    # un archivo PEM-encoded. Si el archivo requiere passphrase, Vault la solicitará
+    # al momento del arranque, y en caso de que el modo HA esté habilitado se recomienda
+    # ampliamente que el passphrase de las claves privadas del resto de nodos sea exactamente
+    # el mismo.
+    tls_key_file = "/etc/certs/server.key"
     # Especifica la mínima versión del protocolo TLS. También soporta las versiones
-    # tls10 y tls11, pero se encuentran obsoletas y se recomienda ampliamente evitarlas.
+    # tls10 (TLS 1.0) y tls11 (TLS 1.1), pero no se recomiendan ya que se consideran obsoletas.
     tls_min_version = "tls12 | tls13"
-    # Enlista los ciphersuites de TLS que se desean soportar, sin importar el orden.
+    # Enlista los Cipher Suites de TLS que se desean soportar, sin importar el orden.
     # Este parámetro de configuración solo es consultado por Go cuando el parámetro
-    # de configuración [tls_max_version] establece la versión de TLS únicamente en tls12.
+    # de configuración [tls_max_version] establece la versión de TLS en tls12, ya que en la
+    # versión 1.3 de TLS no se recomienda negociación.
     tls_cipher_suites = "TLS_RSA_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA, ..."
-    # Habilita la autenticación obligatoria del cliente durante la conexión TLS. El valor
-    # por defecto es false, es decir, no obligar al cliente, aunque en caso de habilitarlo,
-    # requerirá que el parámetro de configuración [tls_client_ca_file] le proporcione la
-    # ruta del certificado PEM necesario.
+    # Habilita la autenticación obligatoria del cliente en la conexión TLS. El valor por defecto
+    # es false, es decir, no obligar a que el cliente se autentique. En caso de habilitarlo
+    # se requerirá que el parámetro de configuración [tls_client_ca_file] le proporcione la
+    # ruta del certificado del CA contra el que se validará la firma del certificado del cliente.
     tls_require_and_verify_client_cert = "false"
-    # Le indica a Go la ubicación del archivo Certificate Authority (CA) en la máquina
-    # anfitriona, necesario para la autenticación del cliente durante la conexión TLS en caso
-    # de que el parámetro de configuración [tls_require_and_verify_client_cert] habilite
-    # la autenticación obligatoria del cliente.
-    tls_client_ca_file = "/path/to/client-ca.pem"
-    # Deshabilita la autenticación obligatoria del cliente durante la conexión TLS,
-    # permitiendo más bien que la autenticación del cliente se realice de manera opcional
-    # únicamente cuando este lo solicite. Su valor por defecto es false, es decir, la
-    # autenticación es opcional. En caso de tener valor true, el parámetro de configuración
-    # [tls_require_and_verify_client_cert] no deberá estar también en true, ya que ambos
-    # parámetros son mutuamente excluyentes.
-    tls_disable_client_certs = "false"
+    # Le indica a Go la ubicación del certificado de CA contra el que se validará la firma del
+    # certificado que presente el cliente en caso de que el parámetro de configuración
+    # [tls_require_and_verify_client_cert] se encuentre en true.
+    tls_client_ca_file = "/path/to/client-ca.crt"
 }
 
 # La sentencia [api_addr] especifica la URL completa del API de Vault en caso
@@ -83,7 +81,8 @@ api_addr="https://192.168.1.67:8200"
 
 # La sentencia [cluster_addr] especifica la URL completa del endpoint interno
 # que coordina las actividades y comunicación del clúster (modo High Availability).
-# No tiene valor por defecto.
+# No tiene valor por defecto, y es necesario establecerlo en caso de seleccionar
+# una solución de Storage que soporte HA de forma nativa.
 #
 # Soporta interfaces IPv4 e IPv6.
 cluster_addr="https://192.168.1.67:8201"
@@ -94,7 +93,7 @@ cluster_addr="https://192.168.1.67:8201"
 # soportan el modo High Availability, mientras otras proveen mayor
 # robustez en cuanto a respaldos y procesos de restauración.
 #
-# HashiCorp recomienda escoger Integrated Storage como solución de Storage, ya
+# HashiCorp recomienda escoger Integrated Storage como solución de Storage, ya que
 # no requiere instalación adicional (se encuentra embebido dentro del binario
 # ejecutable de Vault), recibe soporte oficial de HashiCorp y soporta
 # el modo High Availability. El identificador de este Storage en específico
@@ -104,39 +103,55 @@ cluster_addr="https://192.168.1.67:8201"
 # Azure, Cassandra, DynamoDB, Google Cloud Storage, MySQL, PostgreSQL, S3,
 # Swift, ZooKeeper, entre otros.
 #
-# Ver todos los parámetros de configuración:
-# + https://www.vaultproject.io/docs/configuration/storage/raft
+# A continuación, se desglosará los parámetros de configuración del
+# Storage llamado Integrated Storage (raft). En este caso en particular, el bloque
+# [ha_storage] no debe ser definido.
+#
+# Ver todos los Storage disponibles y sus respectivos parámetros de configuración:
+# + https://www.vaultproject.io/docs/configuration/storage
 storage "raft" {
-    # Define la ruta del filesystem de la máquina anfitriona que Vault
-    # utilizará para almacenar todos los datos del Backend Storage.
+    # Define la ubicación de la máquina anfitriona en donde Vault almacenará
+    # todos los datos del Backend Storage. Esto se replicará de la misma forma
+    # en los nodos del clúster en caso de que HA esté habilitado.
     path = "path/to/some-directory"
-    # Especifica el nombre del nodo dentro del clúster
+    # Especifica el nombre del nodo con el que se identificará la máquina frente
+    # al clúster de raft. Si no se desea habilitar HA, omitir este parámetro.
     node_id = "nodo-1"
-    # Permite establecer una identificación de cada nodo del clúster con el
+    # Permite establecer una identificación de cada nodo del clúster de raft con el
     # propósito de que los demás nodos o bien vuelvan a conectarse al clúster
     # en caso de que alguno de ellos caiga, o bien se coordine el arranque del
     # clúster en caso de que el clúster mismo esté arrancando luego de, p. ej.,
-    # una interrupción eléctrica o caída de red.
+    # una interrupción eléctrica o caída de red. Lo anterior también quiere decir
+    # que habrá tantos bloques [retry_join] como nodos en el clúster.
     #
     # Cuando el primero de los nodos del clúster arranca, este se convertirá
     # automáticamente en el nodo "leader" y el resto de nodos se irán uniendo
-    # para formar el clúster. En caso de utilizar Shamir's Secret Sharing como
-    # mecanismo de unseal, los nodos unidos al clúster aún requeriran ser
-    # desencriptados (unsealed) de forma manual, uno por uno.
+    # para formar el clúster de raft. En caso de utilizar Shamir's Secret Sharing
+    # como mecanismo de unseal, los nodos unidos al clúster aún requeriran ser
+    # desencriptados (unsealed) de forma manual; uno por uno.
     retry_join {
-        # Define mediante una URL completa la dirección de red de un nodo del clúster.
+        # Define mediante una URL completa la dirección de red de un nodo del clúster de raft.
         # Soporta interfaces IPv4 e IPv6.
         leader_api_addr = "http://192.168.1.67:8200"
-        # Especifica la ubicación del certificado CA del posible nodo "leader".
-        leader_ca_cert_file = "/etc/certs/file.pem"
-        # Especifica la ubicación del certificado de clave pública del posible nodo "leader".
-        # Requiere un archivo PEM-encoded.
-        leader_client_cert_file = "/etc/certs/file.crt"
-        # Especifica la ubicación del certificado de llave privada del posible nodo "leader".
-        # Requiere un archivo PEM-encoded.
+        # Especifica la ubicación del certificado del CA que firma el certificado web del posible
+        # nodo "leader". Requiere un archivo PEM-encoded.
+        leader_ca_cert_file = "/etc/certs/server-ca.crt"
+        # Especifica la ubicación del certificado web del posible nodo "leader". Requiere un
+        # archivo PEM-encoded.
+        leader_client_cert_file = "/etc/certs/server.crt"
+        # Especifica la ubicación de la clave asimétrica privada del posible nodo "leader". Requiere
+        # un archivo PEM-encoded.
         leader_client_key_file = "/etc/certs/file.key"
     }
+    # Para ver parámetros más avanzados de Integrated Storage (raft), consultar:
+    # + https://www.vaultproject.io/docs/configuration/storage/raft
 }
+
+# La sentencia [disable_mlock] deshabilita o habilita el uso de memoria swap
+# en la solución de Storage Backend seleccionada. HashiCorp recomienda desactivar
+# la memoria swap directamente cuando la solución de Storage seleccionada es
+# Integrated Storage como medida de seguridad.
+disable_mlock=false
 
 # El bloque [ha_storage] tiene el propósito específico de definir configuración
 # adicional a aquellas soluciones de Backend Storage que no soporten el modo
@@ -151,13 +166,6 @@ storage "raft" {
 ha_storage "" {
 
 }
-
-# La sentencia [disable_mlock] deshabilita o habilita el uso de memoria swap
-# en la solución de Storage Backend seleccionada. Su valor por defecto es
-# false, y en caso de haber seleccionado Integrated Storage como solución,
-# HashiCorp recomienda ampliamente desactivarlo como recomendación de
-# seguridad.
-disable_mlock=false
 
 # El bloque [seal] es opcional y configura el mecanismo de Auto Unseal,
 # en caso de implementarlo.
