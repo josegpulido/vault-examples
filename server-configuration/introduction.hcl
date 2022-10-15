@@ -113,6 +113,8 @@ storage "raft" {
     # Define la ubicación de la máquina anfitriona en donde Vault almacenará
     # todos los datos del Backend Storage. Esto se replicará de la misma forma
     # en los nodos del clúster en caso de que HA esté habilitado.
+    #
+    # Se recomienda el valor "/opt/vault/data"
     path = "path/to/some-directory"
     # Especifica el nombre del nodo con el que se identificará la máquina frente
     # al clúster de raft. Si no se desea habilitar HA, omitir este parámetro.
