@@ -133,6 +133,9 @@ storage "raft" {
         # Define mediante una URL completa la dirección de red de un nodo del clúster de raft.
         # Soporta interfaces IPv4 e IPv6.
         leader_api_addr = "http://192.168.1.67:8200"
+        # Indica el nombre de dominio al que la Certificate Authority (CA) emitió el certificado
+        # X.509. Necesario para habilitar la comunicación TLS intra-clúster.
+        leader_tls_servername = "anything.my-domain.com"
         # Especifica la ubicación del certificado del CA que firma el certificado web del posible
         # nodo "leader". Requiere un archivo PEM-encoded.
         leader_ca_cert_file = "/etc/certs/server-ca.crt"
@@ -176,7 +179,7 @@ seal "" {
 # La sentencia [disable_clustering] habilita o deshabilita las funciones de clustering
 # del nodo actual, y solo se aplicarán cuando el nodo en cuestión sea una instancia "active",
 # y no "standby". El valor por defecto es false, y no puede ser especificado en true si
-# se utiliza raft en el Backend Storage.
+# se utiliza Integrated Storage (raft) como solución de Storage.
 disable_clustering=false
 
 # La sentencia [cluster_name] define un identificador arbitrario para el
