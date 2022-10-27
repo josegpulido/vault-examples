@@ -38,10 +38,12 @@ listener "tcp" {
     tls_disable = "false"
     # Especifica la ubicación del certificado X.509 web de clave pública de la máquina.
     # Requiere un archivo PEM-encoded, y depende del parámetro de configuración [tls_key_file]
-    # para establecer la ubicación de la clave asimétrica privada. Si se desea incluir
+    # para indicar también a Vault la ubicación de la clave asimétrica privada. Si se desea incluir
     # también el certificado del CA que firmó el certificado web, el archivo aquí indicado
     # deberá contener ambos certificados; el certificado web, en primer lugar; y a continuación,
-    # el certificado CA, en ese orden.
+    # el certificado CA, específicamente primero Intermediate Certificate, y luego, Root Certificate,
+    # en ese orden y siempre respetando sus saltos de línea (/n) y demás disposiciones del
+    # formato PEM.
     #
     # En caso de que el modo HA esté habilitado, cada máquina requerirá su propio
     # certificado web distinto.
@@ -68,7 +70,7 @@ listener "tcp" {
     # Le indica a Go la ubicación del certificado de CA contra el que se validará la firma del
     # certificado que presente el cliente en caso de que el parámetro de configuración
     # [tls_require_and_verify_client_cert] se encuentre en true.
-    tls_client_ca_file = "/path/to/client-ca.crt"
+    tls_client_ca_file = "/path/to/ca-bundle.crt"
 }
 
 # La sentencia [api_addr] especifica la URL completa del API de Vault en caso
